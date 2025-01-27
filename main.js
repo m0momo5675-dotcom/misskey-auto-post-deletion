@@ -10,7 +10,9 @@ if (!MISSKEY_URL || !API_TOKEN || !USER_ID) {
 const DRY_RUN = process.env.DRY_RUN === 'true' ? true : false
 const INCLUDE_RENOTES = process.env.INCLUDE_RENOTES === 'true' || false
 const INCLUDE_REPLIES = process.env.INCLUDE_REPLIES === 'true' || false
+const INCLUDE_WITH_ATTACHMENTS = process.env.INCLUDE_WITH_ATTACHMENTS === 'true' || false
 const INCLUDE_ATTACHMENTS = process.env.INCLUDE_ATTACHMENTS === 'true' || false
+const DELETE_ORPHAN_FILES = process.env.DELETE_ORPHAN_FILES === 'true' || false
 const INCLUDE_POLLS = process.env.INCLUDE_POLLS === 'true' || false
 const EXCLUDE_WORDS = process.env.EXCLUDE_WORDS?.split(',') || undefined
 const MAX_RENOTES = parseInt(process.env.MAX_RENOTES) || 0
@@ -76,7 +78,7 @@ async function getOldPosts() {
             oldPosts = oldPosts.filter((post) => !post.reply);
         }
 
-        if (!INCLUDE_ATTACHMENTS) {
+        if (!INCLUDE_WITH_ATTACHMENTS) {
             oldPosts = oldPosts.filter((post) => post.files.length === 0);
         }
 
@@ -105,6 +107,17 @@ async function deletePost(postId) {
     }
 }
 
+async function deleteAttachment(attachmentId) {
+    try {
+        await postRequest(`https://${MISSKEY_URL}/api/drive/files/delete`, {
+            i: API_TOKEN,
+            fileId: attachmentId,
+        });
+        console.log(`Successfully deleted attachment: ${attachmentId}`);
+    } catch (error) {
+        console.error(`Error deleting attachment ${attachmentId}:`, error.message);
+    }
+}
 
 async function deleteOldPosts() {
     const oldPosts = await getOldPosts();
@@ -115,6 +128,15 @@ async function deleteOldPosts() {
 
     for (const post of oldPosts) {
         console.log(`deleting post ${post.id}: ${post.text}`)
+        if (INCLUDE_ATTACHMENTS && post.files) {
+            for (const file of post.files) {
+                console.log(`deleting attachment ${file.id} from post ${post.id}`);
+                if (!DRY_RUN) {
+                    await deleteAttachment(file.id);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+        }
         await new Promise(resolve => setTimeout(resolve, 10000));
         if (!DRY_RUN) {
             await deletePost(post.id);
@@ -122,4 +144,33 @@ async function deleteOldPosts() {
     }
 }
 
+
+async function deleteOrphanedFiles() {
+    const response = await postRequest(`https://${MISSKEY_URL}/api/drive/files`, {
+        i: API_TOKEN,
+        limit: 100,
+        sort: "-createdAt",
+    });
+    
+    // for each file get the attached notes
+    for (const file of response) {
+        const noteResponse = await postRequest(`https://${MISSKEY_URL}/api/drive/files/attached-notes`, {
+            i: API_TOKEN,
+            fileId: file.id,
+            limit: 100,
+        });
+        if (noteResponse && noteResponse.length == 0) {
+            console.log(`${file.id} is an orphan, deleting.`);
+            if (!DRY_RUN) {
+                await deleteAttachment(file.id);
+            }
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+}
+
 deleteOldPosts()
+
+if (DELETE_ORPHAN_FILES) {
+    deleteOrphanedFiles();
+}
