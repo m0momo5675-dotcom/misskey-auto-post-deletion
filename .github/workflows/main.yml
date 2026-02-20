@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: 796-987/misskey-delete-old-posts
+          　repository: m0momo5675-dotcom/misskey-auto-post-deletion
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
