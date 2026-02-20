@@ -1,0 +1,25 @@
+name: Delete old posts
+on:
+  schedule:
+    - cron: '0 * * * *' # 1時間に1回実行
+  workflow_dispatch: # 手動実行用
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: 796-987/misskey-delete-old-posts
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install requests
+      - name: Run delete script
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
+          SERVER: ${{ secrets.SERVER }}
+          EXPIRE_DAYS: ${{ vars.EXPIRE_DAYS }}
+        run: python delete.py
