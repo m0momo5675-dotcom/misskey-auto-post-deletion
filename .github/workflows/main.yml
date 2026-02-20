@@ -10,10 +10,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          # ここで自分のリポジトリから中身を直接取ってくるように設定します
-          repository: m0momo5675-dotcom/misskey-auto-post-deletion
-          path: . 
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,5 +24,4 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
           SERVER: ${{ secrets.SERVER }}
           EXPIRE_DAYS: ${{ vars.EXPIRE_DAYS }}
-        # 実行コマンドを「現在の場所にあるdelete.pyを動かす」形に修正しました
         run: python delete.py
