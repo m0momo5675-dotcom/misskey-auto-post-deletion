@@ -12,7 +12,7 @@ def delete_old_posts():
         print("Error: TOKEN or SERVER is not set.")
         return
 
-    # 削除対象となる日時を計算（2日前）
+    # 削除対象となる日時を計算
     limit_date = datetime.now(timezone.utc) - timedelta(days=EXPIRE_DAYS)
     
     # 自分のユーザーIDを取得
@@ -41,17 +41,15 @@ def delete_old_posts():
     deleted_count = 0
 
     for note in notes:
-        # 投稿日時を取得
         created_at = datetime.fromisoformat(note['createdAt'].replace('Z', '+00:00'))
-        
-        # 指定日数より古いかチェック
         if created_at < limit_date:
             delete_url = f"{api_url}/notes/delete"
             del_res = requests.post(delete_url, json={"i": TOKEN, "noteId": note['id']})
             if del_res.status_code == 204 or del_res.status_code == 200:
-                print(f"Deleted: {note['id']} ({note['createdAt']})")
+                print(f"Deleted: {note['id']}")
                 deleted_count += 1
-            else:
-                print(f"Failed to delete: {note['id']}")
 
-    print(f"Successfully deleted
+    print(f"Successfully deleted {deleted_count} posts.")
+
+if __name__ == "__main__":
+    delete_old_posts()
