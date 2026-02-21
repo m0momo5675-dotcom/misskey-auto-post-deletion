@@ -24,4 +24,7 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
           SERVER: ${{ secrets.SERVER }}
           EXPIRE_DAYS: ${{ vars.EXPIRE_DAYS }}
-        run: python delete.py
+        # ファイルを探して実行する命令に変更しました
+        run: |
+          FILE_PATH=$(find . -name "delete.py" -print -quit)
+          python "$FILE_PATH"
