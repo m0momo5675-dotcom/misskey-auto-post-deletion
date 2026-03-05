@@ -2,7 +2,6 @@ import os
 import requests
 from datetime import datetime, timedelta, timezone
 
-# 設定の読み込み
 TOKEN = os.environ.get('TOKEN')
 SERVER = os.environ.get('SERVER')
 EXPIRE_DAYS = int(os.environ.get('EXPIRE_DAYS', 2))
@@ -15,19 +14,20 @@ def delete_old_posts():
     limit_date = datetime.now(timezone.utc) - timedelta(days=EXPIRE_DAYS)
     api_url = f"https://{SERVER}/api"
     
-    # ユーザーID取得
     user_res = requests.post(f"{api_url}/i", json={"i": TOKEN})
     user_id = user_res.json().get('id')
 
     deleted_count = 0
     until_id = None
 
-    # 100件ずつ最大5回繰り返し（計500件チェック）
-    for _ in range(5):
+    # チェック回数を20回（最大2000件分）に増やして見落としを防ぎます
+    for i in range(20):
         params = {
             "userId": user_id,
             "limit": 100,
-            "i": TOKEN
+            "i": TOKEN,
+            "includeMyRenotes": True, # 自分のリノートも対象に含める
+            "includeReplies": True    # 返信も対象に含める
         }
         if until_id:
             params["untilId"] = until_id
@@ -40,11 +40,13 @@ def delete_old_posts():
 
         for note in notes:
             created_at = datetime.fromisoformat(note['createdAt'].replace('Z', '+00:00'))
-            if created_at < limit_date:
-                requests.post(f"{api_url}/notes/delete", json={"i": TOKEN, "noteId": note['id']})
-                deleted_count += 1
             
-            # 次の取得のために一番古いIDを記録
+            # 2日以上前なら削除
+            if created_at < limit_date:
+                del_res = requests.post(f"{api_url}/notes/delete", json={"i": TOKEN, "noteId": note['id']})
+                if del_res.status_code in [200, 204]:
+                    deleted_count += 1
+            
             until_id = note['id']
 
     print(f"Successfully deleted {deleted_count} posts.")
