@@ -12,42 +12,40 @@ def delete_old_posts():
         print("Error: TOKEN or SERVER is not set.")
         return
 
-    # 削除対象となる日時を計算
     limit_date = datetime.now(timezone.utc) - timedelta(days=EXPIRE_DAYS)
-    
-    # 自分のユーザーIDを取得
     api_url = f"https://{SERVER}/api"
-    i_url = f"{api_url}/i"
-    user_res = requests.post(i_url, json={"i": TOKEN})
-    if user_res.status_code != 200:
-        print(f"Error: Failed to get user info. {user_res.text}")
-        return
+    
+    # ユーザーID取得
+    user_res = requests.post(f"{api_url}/i", json={"i": TOKEN})
     user_id = user_res.json().get('id')
 
-    # 自分のノートを取得して削除
-    notes_url = f"{api_url}/users/notes"
-    params = {
-        "userId": user_id,
-        "limit": 1000,
-        "i": TOKEN
-    }
-
-    res = requests.post(notes_url, json=params)
-    if res.status_code != 200:
-        print(f"Error: Failed to get notes. {res.text}")
-        return
-
-    notes = res.json()
     deleted_count = 0
+    until_id = None
 
-    for note in notes:
-        created_at = datetime.fromisoformat(note['createdAt'].replace('Z', '+00:00'))
-        if created_at < limit_date:
-            delete_url = f"{api_url}/notes/delete"
-            del_res = requests.post(delete_url, json={"i": TOKEN, "noteId": note['id']})
-            if del_res.status_code == 204 or del_res.status_code == 200:
-                print(f"Deleted: {note['id']}")
+    # 100件ずつ最大5回繰り返し（計500件チェック）
+    for _ in range(5):
+        params = {
+            "userId": user_id,
+            "limit": 100,
+            "i": TOKEN
+        }
+        if until_id:
+            params["untilId"] = until_id
+
+        res = requests.post(f"{api_url}/users/notes", json=params)
+        notes = res.json()
+        
+        if not notes:
+            break
+
+        for note in notes:
+            created_at = datetime.fromisoformat(note['createdAt'].replace('Z', '+00:00'))
+            if created_at < limit_date:
+                requests.post(f"{api_url}/notes/delete", json={"i": TOKEN, "noteId": note['id']})
                 deleted_count += 1
+            
+            # 次の取得のために一番古いIDを記録
+            until_id = note['id']
 
     print(f"Successfully deleted {deleted_count} posts.")
 
