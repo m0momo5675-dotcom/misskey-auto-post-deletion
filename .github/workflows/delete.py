@@ -28,7 +28,7 @@ def delete_old_posts():
     notes_url = f"{api_url}/users/notes"
     params = {
         "userId": user_id,
-        "limit": 100,
+        "limit": 1000,
         "i": TOKEN
     }
 
